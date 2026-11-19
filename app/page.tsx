@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../lib/supabase';
-import { Heart, MessageCircle, BookOpen, Share2, Sparkles, PenTool, Trash2, Eye } from 'lucide-react';
+import { Heart, MessageCircle, BookOpen, Share2, Sparkles, PenTool, Trash2, Eye, CornerDownRight } from 'lucide-react';
 
 interface Story {
   id: string;
@@ -20,6 +20,7 @@ interface Comment {
   story_id: string;
   reader_name: string;
   comment_text: string;
+  author_reply?: string | null;
   created_at: string;
 }
 
@@ -33,6 +34,11 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [likedIds, setLikedIds] = useState<string[]>([]);
   const [isAuthor, setIsAuthor] = useState(false);
+
+  // Author Reply States
+  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [savingReply, setSavingReply] = useState(false);
 
   useEffect(() => {
     fetchStories();
@@ -66,6 +72,8 @@ export default function HomePage() {
     const updatedStory = { ...story, views_count: newViews };
 
     setSelectedStory(updatedStory);
+    setReplyingToId(null);
+    setReplyText('');
     setStories((prev) => prev.map((s) => (s.id === story.id ? updatedStory : s)));
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
@@ -130,6 +138,29 @@ export default function HomePage() {
       setComments(comments.filter((c) => c.id !== commentId));
     } else {
       alert('కామెంట్ డిలీట్ అవ్వలేదు: ' + error.message);
+    }
+  }
+
+  async function handleSaveReply(commentId: string) {
+    if (!isAuthor) return;
+    setSavingReply(true);
+    const cleanReply = replyText.trim();
+
+    const { error } = await supabase
+      .from('comments')
+      .update({ author_reply: cleanReply || null })
+      .eq('id', commentId);
+
+    setSavingReply(false);
+
+    if (!error) {
+      setComments((prev) =>
+        prev.map((c) => (c.id === commentId ? { ...c, author_reply: cleanReply || null } : c))
+      );
+      setReplyingToId(null);
+      setReplyText('');
+    } else {
+      alert('రిప్లై సేవ్ అవ్వలేదు: ' + error.message);
     }
   }
 
@@ -261,7 +292,7 @@ export default function HomePage() {
               <div className="mt-8 pt-6 border-t border-slate-800 flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <p className="text-sm text-slate-400">రచన</p>
-                  <p className="font-semibold text-blue-300">తుమాటి నవీన్ కుమార్ (Naveen Tumati)</p>
+                  <p className="font-semibold text-blue-300">తుమాటి నవీన్ (Naveen Tumati)</p>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -344,17 +375,75 @@ export default function HomePage() {
                               {new Date(c.created_at).toLocaleDateString('te-IN')}
                             </span>
                             {isAuthor && (
-                              <button
-                                onClick={() => handleDeleteComment(c.id)}
-                                title="కామెంట్ తొలగించండి"
-                                className="text-red-400 hover:text-red-300 p-1 rounded-lg hover:bg-red-500/10 transition"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setReplyingToId(replyingToId === c.id ? null : c.id);
+                                    setReplyText(c.author_reply || '');
+                                  }}
+                                  className="text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded-lg hover:bg-blue-500/10 transition"
+                                >
+                                  {c.author_reply ? 'రిప్లై మార్చు' : 'రిప్లై'}
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteComment(c.id)}
+                                  title="కామెంట్ తొలగించండి"
+                                  className="text-red-400 hover:text-red-300 p-1 rounded-lg hover:bg-red-500/10 transition"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </>
                             )}
                           </div>
                         </div>
+
                         <p className="text-sm text-slate-300 leading-relaxed">{c.comment_text}</p>
+
+                        {/* Existing Author Reply Display */}
+                        {c.author_reply && replyingToId !== c.id && (
+                          <div className="mt-3 ml-3 pl-3 border-l-2 border-blue-500/60 bg-blue-950/25 rounded-r-lg p-3">
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-300 mb-1">
+                              <CornerDownRight className="w-3.5 h-3.5 text-pink-400" />
+                              <span>✍️ నవీన్ (రచయిత)</span>
+                            </div>
+                            <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-line">
+                              {c.author_reply}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Author Reply Input Box (Only visible to Author when clicked) */}
+                        {isAuthor && replyingToId === c.id && (
+                          <div className="mt-3 ml-3 pl-3 border-l-2 border-pink-500/60 space-y-2">
+                            <textarea
+                              rows={2}
+                              placeholder="పాఠకుడికి మీ రిప్లై రాయండి..."
+                              value={replyText}
+                              onChange={(e) => setReplyText(e.target.value)}
+                              className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 focus:border-blue-500 focus:outline-none text-sm text-white"
+                            />
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                disabled={savingReply}
+                                onClick={() => handleSaveReply(c.id)}
+                                className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-pink-600 text-white text-xs font-medium hover:opacity-90 transition disabled:opacity-50"
+                              >
+                                {savingReply ? 'సేవ్ అవుతోంది...' : 'రిప్లై సేవ్ చేయి'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReplyingToId(null);
+                                  setReplyText('');
+                                }}
+                                className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs hover:bg-slate-700 transition"
+                              >
+                                రద్దు
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))
                   )}
@@ -503,7 +592,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 py-6 text-center text-xs text-slate-400">
-        © 2026 Writings by Naveen • తుమాటి నవీన్ కుమార్
+        © 2026 Writings by Naveen • తుమాటి నవీన్
       </footer>
     </div>
   );
