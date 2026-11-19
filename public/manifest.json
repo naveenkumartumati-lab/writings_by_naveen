@@ -1,0 +1,16 @@
+{
+  "name": "Writings by Naveen",
+  "short_name": "Writings",
+  "description": "తుమాటి నవీన్ కుమార్ తెలుగు కథలు, జ్ఞాపకాలు మరియు రచనల వేదిక.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#1e1b4b",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}
